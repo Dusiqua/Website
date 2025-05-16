@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hejl Dusan Domonkos – Track Record</title>
+  <style>
+    body {
+      margin: 0;
+      background-color: #0b0f19;
+      color: #cbd5e1;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding-top: 60px;
+    }
+
+    h1 {
+      color: #7dd3fc;
+      margin-bottom: 1rem;
+      font-size: 2rem;
+      font-weight: 600;
+    }
+
+    #summary {
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 1rem 2rem;
+      max-width: 1000px;
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      color: #cbd5e1;
+    }
+
+    #summary div span {
+      display: block;
+      font-weight: bold;
+      font-size: 1.4rem;
+    }
+
+    table {
+      width: 100%;
+      max-width: 1000px;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      font-size: 0.95rem;
+    }
+
+    thead th {
+      background-color: #1e293b;
+      color: #cbd5e1;
+      padding: 1rem;
+    }
+
+    tbody td {
+      padding: 0.75rem;
+      text-align: center;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    tr.win td {
+      color: #22d3ee;
+    }
+
+    tr.lose td {
+      color: #ef4444;
+    }
+
+    tr.open td {
+      color: #facc15;
+      font-style: italic;
+    }
+
+    .details-row td {
+      background-color: #111827;
+      color: #94a3b8;
+      font-size: 0.9rem;
+      text-align: left;
+      padding: 0.75rem 1.5rem;
+      border-top: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>Hejl Dusan Domonkos – Track Record</h1>
+
+  <section id="summary">
+    <div><span id="totalTrades">0</span>Trades gesamt</div>
+    <div><span id="wins">0</span>Gewinner</div>
+    <div><span id="loses">0</span>Verlierer</div>
+    <div><span id="totalPercent">0%</span>Gesamter Gewinn</div>
+  </section>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Symbol</th>
+        <th>Entry Time</th>
+        <th>Entry Price</th>
+        <th>Win or Lose</th>
+        <th>Closing Price</th>
+        <th>Closing Time</th>
+        <th>Percentage</th>
+      </tr>
+    </thead>
+    <tbody id="tradeTableBody"></tbody>
+  </table>
+
+  <script>
+    function calculateDuration(entry, close) {
+      const start = new Date(entry);
+      const end = new Date(close);
+      if (isNaN(start) || isNaN(end)) return "–";
+      const diffMs = end - start;
+      const mins = Math.floor(diffMs / 60000);
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      return h > 0 ? `${h}h ${m}min` : `${m}min`;
+    }
+
+    function calculatePips(entry, close) {
+      const e = parseFloat(entry);
+      const c = parseFloat(close);
+      if (isNaN(e) || isNaN(c)) return "–";
+      return Math.round((c - e) / 0.0001);
+    }
+
+    fetch("data.csv")
+      .then(response => response.text())
+      .then(csv => {
+        const lines = csv.split("\n").filter(line => line.trim() !== "");
+        const tbody = document.getElementById("tradeTableBody");
+        tbody.innerHTML = "";
+
+        let totalTrades = 0;
+        let wins = 0;
+        let loses = 0;
+        let totalPercent = 0;
+
+        for (let i = 1; i < lines.length; i++) {
+          const cells = lines[i].split(";").map(cell => cell.trim());
+          if (cells.length < 3) continue;
+
+          const row = document.createElement("tr");
+          const isOpen = !cells[3];
+
+          let duration = "–";
+          let pips = "–";
+
+          if (isOpen) {
+            row.classList.add("open");
+            cells[3] = "⏳ In Progress";
+            cells[4] = cells[5] = cells[6] = "–";
+          } else {
+            const result = cells[3].toLowerCase();
+            if (result === "win") {
+              row.classList.add("win");
+              wins++;
+            } else if (result === "lose") {
+              row.classList.add("lose");
+              loses++;
+            }
+            const percent = parseFloat(cells[6].replace(",", "."));
+            if (!isNaN(percent)) totalPercent += percent;
+
+            duration = calculateDuration(cells[1], cells[5]);
+            pips = calculatePips(cells[2], cells[4]);
+          }
+
+          totalTrades++;
+
+          row.addEventListener("click", () => {
+            const nextRow = row.nextElementSibling;
+            if (nextRow && nextRow.classList.contains("details-row")) {
+              nextRow.remove();
+            } else {
+              const details = document.createElement("tr");
+              details.className = "details-row";
+              const td = document.createElement("td");
+              td.colSpan = 7;
+              td.innerHTML = `<strong>Dauer:</strong> ${duration}<br><strong>Pip Bewegung:</strong> ${pips}`;
+              details.appendChild(td);
+              row.after(details);
+            }
+          });
+
+          cells.forEach(cell => {
+            const td = document.createElement("td");
+            td.textContent = cell;
+            row.appendChild(td);
+          });
+
+          tbody.appendChild(row);
+        }
+
+        document.getElementById("totalTrades").textContent = totalTrades;
+        document.getElementById("wins").textContent = wins;
+        document.getElementById("loses").textContent = loses;
+        document.getElementById("totalPercent").textContent =
+          (totalPercent >= 0 ? "+" : "") + totalPercent.toFixed(2) + "%";
+      });
+  </script>
+</body>
+</html>
