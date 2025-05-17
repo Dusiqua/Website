@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hejl Dusan Domonkos – Track Record</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
       --green: #38A169;
@@ -95,6 +96,10 @@
       border-top: none;
     }
 
+    canvas {
+      max-width: 100%;
+    }
+
     @media (max-width: 600px) {
       body { padding: 1rem; }
       h1 { font-size: 1.5rem; text-align: center; }
@@ -106,6 +111,7 @@
 </head>
 <body>
   <h1>Hejl Dusan Domonkos – Track Record</h1>
+
   <div class="card">
     <section id="summary">
       <div><span id="totalTrades">0</span> Total Trades</div>
@@ -114,6 +120,7 @@
       <div><span id="totalPercent">0%</span> Total Profit</div>
     </section>
   </div>
+
   <div class="card">
     <table>
       <thead>
@@ -129,6 +136,10 @@
       </thead>
       <tbody id="tradeTableBody"></tbody>
     </table>
+  </div>
+
+  <div class="card">
+    <canvas id="performanceChart"></canvas>
   </div>
 
   <script>
@@ -151,6 +162,30 @@
       return Math.round((c - e) / pipValue);
     }
 
+    function drawChart(dataPoints) {
+      const ctx = document.getElementById('performanceChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: dataPoints.map(p => p.label),
+          datasets: [{
+            label: 'Cumulative Profit (%)',
+            data: dataPoints.map(p => p.value),
+            fill: false,
+            borderColor: '#38A169',
+            tension: 0.2
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: { title: { display: true, text: 'Entry Date' } },
+            y: { title: { display: true, text: 'Profit (%)' } }
+          }
+        }
+      });
+    }
+
     fetch("data.csv")
       .then(response => response.text())
       .then(csv => {
@@ -162,6 +197,7 @@
         let wins = 0;
         let loses = 0;
         let totalPercent = 0;
+        let chartRaw = [];
 
         for (let i = 1; i < lines.length; i++) {
           const cells = lines[i].split(";").map(cell => cell.trim());
@@ -179,16 +215,17 @@
             cells[4] = cells[5] = cells[6] = "–";
           } else {
             const result = cells[3].toLowerCase();
-            if (result === "win") {
-              row.classList.add("win");
-              wins++;
-            } else if (result === "lose") {
-              row.classList.add("lose");
-              loses++;
-            }
+            if (result === "win") { row.classList.add("win"); wins++; }
+            else if (result === "lose") { row.classList.add("lose"); loses++; }
 
-            const percent = parseFloat(cells[6].replace(",", "."));
-            if (!isNaN(percent)) totalPercent += percent;
+            const percent = parseFloat(cells[6].replace(",", ".").replace("%", ""));
+            if (!isNaN(percent)) {
+              chartRaw.push({
+                date: cells[1].split(" ")[0],
+                percent: percent
+              });
+              totalPercent += percent;
+            }
 
             duration = calculateDuration(cells[1], cells[5]);
             pips = calculatePips(cells[2], cells[4], cells[0]);
@@ -225,6 +262,17 @@
         document.getElementById("loses").textContent = loses;
         document.getElementById("totalPercent").textContent =
           (totalPercent >= 0 ? "+" : "") + totalPercent.toFixed(2) + "%";
+
+        // prepare sorted cumulative data
+        chartRaw.sort((a, b) => new Date(a.date) - new Date(b.date));
+        let cumulative = 0;
+        const chartData = [{ label: 'Start', value: 0 }];
+        for (const entry of chartRaw) {
+          cumulative += entry.percent;
+          chartData.push({ label: entry.date, value: parseFloat(cumulative.toFixed(2)) });
+        }
+
+        drawChart(chartData);
       });
   </script>
 </body>
